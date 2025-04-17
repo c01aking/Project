@@ -21,6 +21,6 @@ bool esp_at_time_get(uint32_t *timestamp);
 bool esp_at_sntp_init(void);
 
 void Timer3_IRQ_Handler_callback_register(Timer3_IRQ_Handler_callback_t callback);
-//void Timer_for_ESP_Init(void);
+void Timer_for_ESP_Init(void);
 
 #endif

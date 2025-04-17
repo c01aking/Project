@@ -204,55 +204,59 @@ bool esp_at_time_get(uint32_t *timestamp)
 	return true;
 }
 
-//void Timer_for_ESP_Init(void)
-//{
-//	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);						//TIM2定时1s用于为TIM3提供时钟输入产生级联
-//	TIM_InternalClockConfig(TIM2);
-//	
-//	TIM_TimeBaseInitTypeDef TIM_TimeBaseStructure;
-//	TIM_TimeBaseStructure.TIM_ClockDivision		= TIM_CKD_DIV1;
-//	TIM_TimeBaseStructure.TIM_CounterMode		= TIM_CounterMode_Down;
-//	TIM_TimeBaseStructure.TIM_Period			= 10000 - 1;					//自动重装载
-//	TIM_TimeBaseStructure.TIM_Prescaler			= 7200 - 1;						//72MHz预分频
-//	TIM_TimeBaseStructure.TIM_RepetitionCounter	= 0;
-//	TIM_TimeBaseInit(TIM2, &TIM_TimeBaseStructure);
-//	
+void Timer_for_ESP_Init(void)
+{
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);						//TIM2定时1s用于为TIM3提供时钟输入产生级联
+	TIM_InternalClockConfig(TIM2);
+	
+	TIM_TimeBaseInitTypeDef TIM_TimeBaseStructure;
+	TIM_TimeBaseStructure.TIM_ClockDivision		= TIM_CKD_DIV1;
+	TIM_TimeBaseStructure.TIM_CounterMode		= TIM_CounterMode_Down;
+	TIM_TimeBaseStructure.TIM_Period			= 10000 - 1;					//自动重装载
+	TIM_TimeBaseStructure.TIM_Prescaler			= 7200 - 1;						//72MHz预分频
+	TIM_TimeBaseStructure.TIM_RepetitionCounter	= 0;
+	TIM_TimeBaseInit(TIM2, &TIM_TimeBaseStructure);
+	TIM_SelectOutputTrigger(TIM2, TIM_TRGOSource_Update);						//选择TIM2为主模式，送出更新事件为TRGO输出信号
+	
 //	TIM_Cmd(TIM2, ENABLE);
-//	
-//	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM3, ENABLE);						//TIM3用于产生中断信号，实现每10min更新天气与时间数据
-//	TIM_ITRxExternalClockConfig(TIM3, TIM_TS_ITR1);
-//	
-//	TIM_TimeBaseStructure.TIM_ClockDivision		= TIM_CKD_DIV1;
-//	TIM_TimeBaseStructure.TIM_CounterMode		= TIM_CounterMode_Down;
-//	TIM_TimeBaseStructure.TIM_Period			= 1 - 1;						//计数到600即10min
-//	TIM_TimeBaseStructure.TIM_Prescaler			= 1 - 1;						//1Hz不分频
-//	TIM_TimeBaseStructure.TIM_RepetitionCounter	= 0;
-//	TIM_TimeBaseInit(TIM3, &TIM_TimeBaseStructure);
-//	
-//	TIM_ITConfig(TIM3, TIM_IT_Update, ENABLE);
-//	
-//	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
-//	
-//	NVIC_InitTypeDef NVIC_InitStructure;
-//	NVIC_InitStructure.NVIC_IRQChannel						= TIM3_IRQn;
-//	NVIC_InitStructure.NVIC_IRQChannelCmd					= ENABLE;
-//	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority	= 1;
-//	NVIC_InitStructure.NVIC_IRQChannelSubPriority			= 1;
-//	NVIC_Init(&NVIC_InitStructure);
-//	
-//	TIM_Cmd(TIM2, ENABLE);
-//}
+	
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM3, ENABLE);						//TIM3用于产生中断信号，实现每10min更新天气与时间数据
+	TIM_ITRxExternalClockConfig(TIM3, TIM_TS_ITR1);
+	
+	TIM_TimeBaseStructure.TIM_ClockDivision		= TIM_CKD_DIV1;
+	TIM_TimeBaseStructure.TIM_CounterMode		= TIM_CounterMode_Down;
+	TIM_TimeBaseStructure.TIM_Period			= 600 - 1;						//计数到600即10min，目前问题可能出现在这里，TIM2定时器溢出时没有级联TIM3，这导致TIM不能正确的计数
+	TIM_TimeBaseStructure.TIM_Prescaler			= 1 - 1;						//1Hz不分频
+	TIM_TimeBaseStructure.TIM_RepetitionCounter	= 0;
+	TIM_TimeBaseInit(TIM3, &TIM_TimeBaseStructure);
+	
+	TIM_SelectSlaveMode(TIM3, TIM_SlaveMode_External1);							//配置TIM3为从模式，接收来自TIM2的时钟信号
+	
+	TIM_ITConfig(TIM3, TIM_IT_Update, ENABLE);
+	
+	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);								//这个优先级分组一个程序只能分一次，它决定了中断是如何划分的
+	
+	NVIC_InitTypeDef NVIC_InitStructure;
+	NVIC_InitStructure.NVIC_IRQChannel						= TIM3_IRQn;
+	NVIC_InitStructure.NVIC_IRQChannelCmd					= ENABLE;
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority	= 1;
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority			= 1;
+	NVIC_Init(&NVIC_InitStructure);
+	
+	TIM_Cmd(TIM2, ENABLE);
+	TIM_Cmd(TIM3, ENABLE);
+}
 
-//void Timer3_IRQ_Handler_callback_register(Timer3_IRQ_Handler_callback_t callback)
-//{
-//	Timer3_IRQ_Handler_callback = callback;
-//}
+void Timer3_IRQ_Handler_callback_register(Timer3_IRQ_Handler_callback_t callback)
+{
+	Timer3_IRQ_Handler_callback = callback;
+}
 
-//void TIM3_IRQHandler(void)
-//{
-//	if (TIM_GetITStatus(TIM3, TIM_IT_Update) == SET)
-//	{
-//		Timer3_IRQ_Handler_callback();
-//		TIM_ClearITPendingBit(TIM3, TIM_IT_Update);
-//	}
-//}
+void TIM3_IRQHandler(void)
+{
+	if (TIM_GetITStatus(TIM3, TIM_IT_Update) == SET)
+	{
+		Timer3_IRQ_Handler_callback();
+		TIM_ClearITPendingBit(TIM3, TIM_IT_Update);
+	}
+}

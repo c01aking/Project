@@ -151,52 +151,37 @@
         <Ww>
           <count>0</count>
           <WinNumber>1</WinNumber>
-          <ItemText>ts,0x10</ItemText>
+          <ItemText>*(unsigned int*)0x40000410,0x10</ItemText>
         </Ww>
         <Ww>
           <count>1</count>
           <WinNumber>1</WinNumber>
-          <ItemText>p_time</ItemText>
+          <ItemText>*(unsigned int*)0x40000424,0x0A</ItemText>
         </Ww>
         <Ww>
           <count>2</count>
           <WinNumber>1</WinNumber>
-          <ItemText>timestamp</ItemText>
+          <ItemText>*(unsigned int*)0x40000024,0x0A</ItemText>
         </Ww>
         <Ww>
           <count>3</count>
           <WinNumber>1</WinNumber>
-          <ItemText>sts</ItemText>
+          <ItemText>*(unsigned int*)0x40000000</ItemText>
         </Ww>
         <Ww>
           <count>4</count>
           <WinNumber>1</WinNumber>
-          <ItemText>rsp</ItemText>
+          <ItemText>rxdata</ItemText>
         </Ww>
         <Ww>
           <count>5</count>
           <WinNumber>1</WinNumber>
-          <ItemText>rxdata</ItemText>
+          <ItemText>rsp</ItemText>
         </Ww>
         <Ww>
           <count>6</count>
           <WinNumber>1</WinNumber>
-          <ItemText>timestamp,0x0A</ItemText>
-        </Ww>
-        <Ww>
-          <count>7</count>
-          <WinNumber>1</WinNumber>
-          <ItemText>time_cnt,0x10</ItemText>
-        </Ww>
-        <Ww>
-          <count>8</count>
-          <WinNumber>1</WinNumber>
-          <ItemText>RTC_Time,0x0A</ItemText>
-        </Ww>
-        <Ww>
-          <count>9</count>
-          <WinNumber>1</WinNumber>
-          <ItemText>time_array[4],0x0A</ItemText>
+          <ItemText>rxready</ItemText>
         </Ww>
       </WatchWindow1>
       <WatchWindow2>
@@ -210,7 +195,7 @@
         <Mm>
           <WinNumber>1</WinNumber>
           <SubType>8</SubType>
-          <ItemText>timestamp</ItemText>
+          <ItemText>cmd</ItemText>
           <AccSizeX>0</AccSizeX>
         </Mm>
       </MemoryWindow1>
@@ -915,7 +900,7 @@
 
   <Group>
     <GroupName>System</GroupName>
-    <tvExp>1</tvExp>
+    <tvExp>0</tvExp>
     <tvExpOptDlg>0</tvExpOptDlg>
     <cbSel>0</cbSel>
     <RteFlg>0</RteFlg>
