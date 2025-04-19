@@ -32,6 +32,7 @@
 ".\objects\myspi.o"
 ".\objects\esp32c3.o"
 ".\objects\serial.o"
+".\objects\http_current.o"
 ".\objects\main.o"
 ".\objects\stm32f10x_it.o"
 --strict --scatter ".\Objects\Project.sct"

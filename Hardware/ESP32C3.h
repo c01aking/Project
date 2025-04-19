@@ -4,8 +4,25 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef void(*Timer3_IRQ_Handler_callback_t)(void);
+#define RX_BUFFER_SIZE	4096
 
+/*
+我在这里定义了枚举和结构体，用于在另一个轮询文件中引入这个c文件中的中断回调函数的变量
+*/
+typedef enum{
+	RX_RESULT_OK,
+	RX_RESULT_ERROR,
+	RX_RESULT_FAIL,
+}RESULT_STATE;
+
+typedef struct{
+	uint8_t rxdata[RX_BUFFER_SIZE];
+	uint32_t rxlen;
+	bool rxready;
+	RESULT_STATE rxresult;
+}rxdata_parameter_t;
+
+typedef void(*Timer3_IRQ_Handler_callback_t)(void);
 
 bool esp_at_init(void);
 bool esp_at_send_command(const char *cmd, const char **rsp, uint32_t *length, uint32_t timeout);

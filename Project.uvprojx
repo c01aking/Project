@@ -730,6 +730,16 @@
               <FileType>5</FileType>
               <FilePath>.\Hardware\Serial.h</FilePath>
             </File>
+            <File>
+              <FileName>Http_current.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Hardware\Http_current.c</FilePath>
+            </File>
+            <File>
+              <FileName>Http_current.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\Hardware\Http_current.h</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
