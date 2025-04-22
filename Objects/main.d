@@ -34,5 +34,6 @@
 .\objects\main.o: .\System\Delay.h
 .\objects\main.o: .\System\weather.h
 .\objects\main.o: .\System\RTC.h
-.\objects\main.o: E:\Keil5\ARM\ARMCC\Bin\..\include\stddef.h
+.\objects\main.o: .\Hardware\Http_current.h
 .\objects\main.o: E:\Keil5\ARM\ARMCC\Bin\..\include\stdio.h
+.\objects\main.o: E:\Keil5\ARM\ARMCC\Bin\..\include\stddef.h

@@ -4,6 +4,7 @@
 #include "Delay.h"
 #include "weather.h"
 #include "RTC.h"
+#include "Http_current.h"
 
 #include <stddef.h>
 #include <stdbool.h>
@@ -15,18 +16,27 @@ static const char *weather_url = "https://api.seniverse.com/v3/weather/now.json?
 static char *weather;
 static char *temperature;
 static uint16_t *time_array;
-static bool weather_ok = false;
-static bool sntp_ok = false;
-static bool time2update = true;
+//static bool weather_ok = false;
+//static bool sntp_ok = false;
+static bool weather_request_in_progress = false;
+extern EspHttpRequset current_request;
+static bool need_update = true;
+static bool time_ready = false;
+static bool weather_done = false;
 
 
-
-
-void get_weather_time_callback(void)
+void get_weather_time_callback(void)							//中断服务函数中更新需要的标志位
 {
-	time2update = true;											//中断中不要搞太长时间的代码，否则肯定会出问题，不要用下面的中断，把屏幕显示都搞到中断里了，最后就屏幕显示混乱
+	need_update = true;
+	//current_request.state = ESP_HTTP_NEED_UPDATE;				//中断中不要搞太长时间的代码，否则肯定会出问题，不要用下面的中断，把屏幕显示都搞到中断里了，最后就屏幕显示混乱
 }
 
+/*
+这个程序实现了异步不阻塞的天气温度和时间请求，由于能力有限，我没把它做成状态机与任务队列的形式(同时也是因为只有两个任务)
+下一版准备添加陀螺仪来实现屏幕的旋转，如果有能力有可能就加入RTOS实现多任务
+
+
+*/
 int main(void)
 {
 	SysTick_Config(SystemCoreClock / 1000);						//设置SysTick每1ms触发一次系统定时器中断
@@ -51,30 +61,67 @@ int main(void)
 	Timer3_IRQ_Handler_callback_register(get_weather_time_callback);
 	Timer_for_ESP_Init();
 	
-	while (1)
+	while (1)											
 	{
-		if (time2update || !weather_ok || !sntp_ok)
+		const char *rsp;
+		if (need_update && !weather_request_in_progress)
 		{
-			time2update = false;
-			const char *rsp;
-			esp_at_http_get(weather_url, &rsp, NULL, 10000);
-			if (weather_parse(rsp, &weather, &temperature))
+			esp_http_request_start(weather_url, &rsp, 10000);					//每次都会重置state的值为SENDING，实际上每次循环都在发送而没有解析开正确的值	
+																				//这个rsp必须要有的，它存放ESP返回的天气信息
+			weather_request_in_progress = true;
+			need_update = false;
+		}
+		
+		esp_http_poll();						
+		
+		if ((current_request.state == ESP_HTTP_DONE) && weather_request_in_progress && esp_http_request_is_done())			//这个代码应该是只有在需要进行网络请求更新时才进入
+		{
+			weather_request_in_progress = false;
+			if (esp_http_request_is_success())
 			{
-				weather_ok = true;
+				if (!weather_parse(rsp, &weather, &temperature))				//这就是上面的rsp，程序从这里面解析数据
+				{
+					need_update = true;											//两任务还是需要两个接收缓冲区的，否则很容易就覆盖了，像这里的问题就是逻辑上走不通，容易产生数据覆盖
+				}
+				else
+				{
+					ST7735S_ShowString(2, 9, "        ", 0xFFFF, 0x0000);		//2025.4.21现在解决了写入本地时间戳的问题，但是代码运行不到这里了
+					ST7735S_ShowString(2, 9, weather, 0xFFFF, 0x0000);
+					ST7735S_ShowString(3, 13, temperature, 0xFFFF, 0x0000);
+					weather_done = true;
+				}
 			}
 			else
 			{
-				weather_ok = false;
+				need_update = true;
+			}
+		}
+		
+		uint32_t ts;
+//		if(!esp_at_sntp_init())											//问题出在这里，这个代码运行太快了，主循环走三轮的时间这个时间请求代码才会走完
+//		{
+//			need_update = true;											//这个Init也有命令发送，可能也要等缓冲区接收完成
+//		}
+//		esp_at_time_get(&ts);											//在这发送时间请求来写入本地时间戳
+//		RTC_Record_Time(&ts, &time_array);
+
+		if (weather_done)
+		{
+			if (!time_ready)
+			{
+				if (esp_at_sntp_init())
+				{
+					time_ready = esp_at_time_get(&ts);
+				}
 			}
 			
-			ST7735S_ShowString(2, 9, "        ", 0xFFFF, 0x0000);
-			ST7735S_ShowString(2, 9, weather, 0xFFFF, 0x0000);
-			ST7735S_ShowString(3, 13, temperature, 0xFFFF, 0x0000);
-			
-			uint32_t ts;
-			sntp_ok = esp_at_sntp_init();
-			esp_at_time_get(&ts);
-			RTC_Record_Time(&ts, &time_array);
+			if (time_ready)
+			{
+				RTC_Record_Time(&ts, &time_array);
+				time_ready = false;
+				need_update = false;
+				weather_done = false;
+			}
 		}
 		
 		RTC_ReadTime(&time_array);

@@ -1,12 +1,16 @@
-//#include "stm32f10x.h"                  // Device header
-//#include "Http_current.h"
-//#include "Serial.h"
-//#include "ESP32C3.h"
+#include "stm32f10x.h"                  // Device header
+#include "Http_current.h"
+#include "Serial.h"
+#include "ESP32C3.h"
+#include "Delay.h"
 
-//extern rxdata_parameter_t *rxdata_ptr(void);
-//static rxdata_parameter_t *rxdata;
+#include <stddef.h>
 
-//static EspHttpRequset current_request;
+extern rxdata_parameter_t *rxdata_ptr(void);
+static rxdata_parameter_t *rxdata;
+//static bool send_command_state = false;
+
+EspHttpRequset current_request;
 
 //volatile uint32_t sys_ms = 0;
 
@@ -65,63 +69,78 @@
 //	return rxresult == RX_RESULT_OK;		//其实是在中断服务函数中由不同的状态定义rxresult的结果，它是那个RX的标志变量，如果正确的接收了ESP的回复，则置true，否则为false
 //}
 
-//void esp_http_request_start(const char *url, const char **rsp, uint16_t timeout)	//用于初始化调度任务，确定网络请求命令，缓冲区指针，超时时间，开始时间以及状态
-//{
+void esp_http_request_start(const char *url, const char **rsp, uint16_t timeout)	//用于初始化调度任务，确定网络请求命令，缓冲区指针，超时时间，开始时间以及状态
+{
 //	char cmd[128];
 //	snprintf(cmd, sizeof(cmd), "AT+HTTPCGET=\"%s\"", url);
-//	
-//	rxdata = rxdata_ptr();					//链接结构体指针，使这里定义的结构体指针指向链接的结构体
+	snprintf(current_request.cmd_temp, sizeof(current_request.cmd_temp), "AT+HTTPCGET=\"%s\"", url);
+	
+	rxdata = rxdata_ptr();					//链接结构体指针，使这里定义的结构体指针指向链接的结构体
 //	current_request.cmd 		= cmd;
-//	*current_request.rsp 		= (const char *)rxdata->rxdata;						//这里我想让rsp指向rxdata结构体中的rxdata数组地址
-//	current_request.timeout		= timeout;
+	current_request.cmd			= current_request.cmd_temp;
+	current_request.rsp 		= (const char *)rxdata->rxdata;						//这里我想让rsp指向rxdata结构体中的rxdata数组地址
+																					//野指针解引用就使程序报错了，GPT提示说这里仅用一级指针就可以了，但是源代码使用的是二级指针以便后面可以调用，先处理赋值问题
+	if (rsp)
+	{
+		*rsp = current_request.rsp;
+	}
+	current_request.timeout		= timeout;											
 //	current_request.start_time	= millis();
-//	current_request.state		= ESP_HTTP_SENDING;
-//	current_request.finished	= false;
-//}
+	current_request.state		= ESP_HTTP_SENDING;
+	current_request.finished	= false;
+}
 
-///*
-//将完整的网络请求分成几步，以达成异步轮询的效果
-//1、初始化
-//2、发送命令
-//3、检查接收完成
-//将接收到的放在rxdata中，因为串口接收中断由rxdata的数据来判断接收结果
-//*/
-//void esp_http_poll(void)
-//{
-//	switch(current_request.state)								//如果一个枚举类型作为了switch的对象但是case没有覆盖全部情况时，就会汇报警告
-//	{
-//		case ESP_HTTP_SENDING:
-//			rxdata->rxlen = 0;
-//			rxdata->rxready = true;
-//			rxdata->rxresult = RX_RESULT_FAIL;
-//			Serial_SendString(current_request.cmd);
-//			Serial_SendString("\r\n");
-//			current_request.state = ESP_HTTP_WAITING_RESPONSE;
-//			break;
-//		
-//		case ESP_HTTP_WAITING_RESPONSE:							//等待回应
-//			if (rxdata->rxready && millis() - current_request.start_time > current_request.timeout)			//如果millis函数用不了也可以使用timeout--的形式吧
-//			{
-//				current_request.state = ESP_HTTP_WAITING_RESPONSE;
-//			}
-//			
-//		default:
-//			break;
-//			
-//	}
-//}
+/*
+将完整的网络请求分成几步，以达成异步轮询的效果
+1、初始化
+2、发送命令
+3、检查接收完成
+将接收到的放在rxdata中，因为串口接收中断由rxdata的数据来判断接收结果
+*/
+void esp_http_poll(void)
+{
+	switch(current_request.state)								//如果一个枚举类型作为了switch的对象但是case没有覆盖全部情况时，就会汇报警告
+	{
+		case ESP_HTTP_SENDING:
+			rxdata->rxlen = 0;
+			rxdata->rxready = true;
+			rxdata->rxresult = RX_RESULT_FAIL;
+			Serial_SendString(current_request.cmd);
+			Serial_SendString("\r\n");
+			current_request.state = ESP_HTTP_WAITING_RESPONSE;
+			break;
+		
+		case ESP_HTTP_WAITING_RESPONSE:							//等待回应			
+			if (!rxdata->rxready && current_request.timeout --)// || millis() - current_request.start_time > current_request.timeout)			//如果millis函数用不了也可以使用timeout--的形式吧
+			{
+				Delay_ms(1);
+				if (rxdata->rxresult == RX_RESULT_OK)
+				{
+//					send_command_state = true;
+					current_request.state = ESP_HTTP_DONE;
+					current_request.finished = true;
+				}
+				else
+				{
+//					send_command_state = false;
+					current_request.state = ESP_HTTP_ERROR;
+					current_request.finished = true;
+				}
+			}
+			break;
+		
+		default:
+			break;
+			
+	}
+}
 
-//bool esp_http_request_is_done(void)
-//{
-//	
-//}
+bool esp_http_request_is_done(void)
+{
+	return current_request.finished == true;
+}
 
-//bool esp_http_request_is_success(void)
-//{
-//	
-//}
-
-//void esp_http_request_reset(void)
-//{
-//	
-//}
+bool esp_http_request_is_success(void)
+{
+	return current_request.state == ESP_HTTP_DONE;
+}
